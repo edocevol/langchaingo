@@ -297,34 +297,36 @@ func (mc *markdownContext) onListItem(mark string, endAt int) {
 
 	listTitle := fmt.Sprintf("%s%s %s", repeatString(mc.indentLevel-1, "\t"), mark, inline.Content)
 
-	// move to the next token after ParagraphClose
-	mc.startAt += 2
-
 	// check there is any other tokens belongs to current BulletList or OrderedList
-	if mc.startAt < endAt {
+	if mc.startAt+3 < endAt {
 		// check next token is ListItemOpen
-		if _, ok := mc.tokens[mc.startAt+1].(*markdown.ListItemOpen); ok {
+		nextItem := mc.tokens[mc.startAt+3]
+		if _, ok := nextItem.(*markdown.ListItemOpen); ok {
 			// append current list title to current chunk
 			mc.joinSnippet(listTitle)
 
 			// move to the next ListItemOpen
-			mc.startAt++
+			mc.startAt += 3
 
 			// recursive to get all the list items
 			mc.onListItem(mark, endAt)
 			return
 		}
 
-		if _, ok := mc.tokens[mc.startAt+1].(*markdown.BulletListClose); !ok {
+		if _, ok := nextItem.(*markdown.BulletListClose); ok {
+			mc.startAt += 5
+			mc.onListItem(mark, endAt)
 			return
 		}
 
-		if _, ok := mc.tokens[mc.startAt+1].(*markdown.OrderedListClose); !ok {
+		if _, ok := nextItem.(*markdown.OrderedListClose); ok {
+			mc.startAt += 5
+			mc.onListItem(mark, endAt)
 			return
 		}
 
 		// check next token is ParagraphOpen or any other tokens
-		tempMC := mc.clone(mc.startAt, endAt-1)
+		tempMC := mc.clone(mc.startAt+2, endAt-1)
 		tempMC.indentLevel++
 
 		tempMC.hTitle = listTitle

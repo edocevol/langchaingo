@@ -22,6 +22,17 @@ community looks forward to your contributions. 🎉
 - [I Want To Contribute](#i-want-to-contribute)
 - [Reporting Bugs](#reporting-bugs)
 - [Before Submitting a Bug Report](#before-submitting-a-bug-report)
+- [Suggesting Enhancements](#suggesting-enhancements)
+- [Before Submitting an Enhancement](#before-submitting-an-enhancement)
+- [Your First Code Contribution](#your-first-code-contribution)
+- [Make Changes](#make-changes)
+- [Make changes in the UI](#make-changes-in-the-ui)
+
+---
+
+## Table of Contents
+- [Commit your update](#commit-your-update)
+- [Pull Request](#pull-request)
 
 ---
 
@@ -182,6 +193,7 @@ for a review.
 - Using GitHub Desktop:
 - [Getting started with GitHub Desktop](https://docs.github.com/en/desktop/installing-and-configuring-github-desktop/getting-started-with-github-desktop)
 will guide you through setting up Desktop.
+- Using the command line:
 - Install or make sure **Golang** is updated.
 
 ---

@@ -3,6 +3,7 @@ package textsplitter
 import (
 	"fmt"
 	"reflect"
+	"strings"
 
 	"gitlab.com/golang-commonmark/markdown"
 )
@@ -192,10 +193,21 @@ func (mc *markdownContext) onMDQuote() {
 		mc.startAt = endAt + 1
 	}()
 
+	_, ok := mc.tokens[mc.startAt].(*markdown.BlockquoteOpen)
+	if !ok {
+		return
+	}
+
 	tmpMC := mc.clone(mc.startAt+1, endAt-1)
 	chunks := tmpMC.splitText()
 
-	mc.chunks = append(mc.chunks, chunks...)
+	for _, chunk := range chunks {
+		lines := strings.Split(chunk, "\n")
+		for i, line := range lines {
+			lines[i] = fmt.Sprintf("> %s", line)
+		}
+		mc.joinSnippet(strings.Join(lines, "\n"))
+	}
 }
 
 // onMDBulletList splits bullet list
@@ -211,7 +223,7 @@ func (mc *markdownContext) onMDBulletList() {
 	oldHContent := mc.hContent
 
 	// move to ListItemOpen
-	mc.startAt += 1
+	mc.startAt++
 
 	mc.splitListItem("-", endAt)
 
@@ -272,10 +284,13 @@ func (mc *markdownContext) splitListItem(mark string, endAt int) {
 	if !ok {
 		return
 	}
+	// move to Inline
+	mc.startAt += 2
 
 	listTitle := fmt.Sprintf("%s%s %s", repeatString(mc.indentLevel-1, "\t"), mark, inline.Content)
+
 	// move to the next token after ParagraphClose
-	mc.startAt += 4
+	mc.startAt += 2
 
 	// check there is any other tokens belongs to current BulletList or OrderedList
 	if mc.startAt < endAt {
@@ -286,7 +301,7 @@ func (mc *markdownContext) splitListItem(mark string, endAt int) {
 			mc.joinSnippet(listTitle)
 
 			// move to the next ListItemOpen
-			mc.startAt += 1
+			mc.startAt++
 
 			// recursive to get all the list items
 			mc.splitListItem(mark, endAt)
@@ -295,6 +310,8 @@ func (mc *markdownContext) splitListItem(mark string, endAt int) {
 
 		// check next token is ParagraphOpen or any other tokens
 		tempMC := mc.clone(mc.startAt, endAt-1)
+		tempMC.indentLevel++
+
 		tempMC.hContent = listTitle
 		tempChunks := tempMC.splitText()
 

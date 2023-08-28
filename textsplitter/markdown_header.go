@@ -299,6 +299,27 @@ func (mc *markdownContext) onListItem(mark string, endAt int) {
 
 	// check there is any other tokens belongs to current BulletList or OrderedList
 	if mc.startAt+3 < endAt {
+		preOfNextItem := mc.tokens[mc.startAt+2]
+		switch preOfNextItem.(type) {
+		case *markdown.BulletListOpen, *markdown.OrderedListOpen:
+			mc.startAt += 2
+			subEndAt := indexOfCloseTag(mc.tokens, mc.startAt)
+			// check next token is ParagraphOpen or any other tokens
+			tempMC := mc.clone(mc.startAt, subEndAt-1)
+			tempMC.indentLevel++
+
+			tempMC.hTitle = listTitle
+			tempChunks := tempMC.splitText()
+
+			// append sub chunks to current chunk
+			for _, chunk := range tempChunks {
+				mc.joinSnippet(chunk)
+			}
+			mc.startAt = subEndAt + 1
+			mc.onListItem(mark, endAt)
+			return
+		}
+
 		// check next token is ListItemOpen
 		nextItem := mc.tokens[mc.startAt+3]
 		if _, ok := nextItem.(*markdown.ListItemOpen); ok {
@@ -323,18 +344,6 @@ func (mc *markdownContext) onListItem(mark string, endAt int) {
 			mc.startAt += 5
 			mc.onListItem(mark, endAt)
 			return
-		}
-
-		// check next token is ParagraphOpen or any other tokens
-		tempMC := mc.clone(mc.startAt+2, endAt-1)
-		tempMC.indentLevel++
-
-		tempMC.hTitle = listTitle
-		tempChunks := tempMC.splitText()
-
-		// append sub chunks to current chunk
-		for _, chunk := range tempChunks {
-			mc.joinSnippet(chunk)
 		}
 	}
 }

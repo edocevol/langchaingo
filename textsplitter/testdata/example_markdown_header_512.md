@@ -20,19 +20,8 @@ community looks forward to your contributions. 🎉
 - [Code of Conduct](#code-of-conduct)
 - [I Have a Question](#i-have-a-question)
 - [I Want To Contribute](#i-want-to-contribute)
-- [Reporting Bugs](#reporting-bugs)
-- [Before Submitting a Bug Report](#before-submitting-a-bug-report)
-- [Suggesting Enhancements](#suggesting-enhancements)
-- [Before Submitting an Enhancement](#before-submitting-an-enhancement)
-- [Your First Code Contribution](#your-first-code-contribution)
-- [Make Changes](#make-changes)
-- [Make changes in the UI](#make-changes-in-the-ui)
-
----
-
-## Table of Contents
-- [Commit your update](#commit-your-update)
-- [Pull Request](#pull-request)
+		- [Reporting Bugs](#reporting-bugs)
+				- [Before Submitting a Bug Report](#before-submitting-a-bug-report)
 
 ---
 
@@ -93,15 +82,15 @@ is not already a bug report existing for your bug or error in
 the [bug tracker](https://github.com/tmc/langchaingo/issues?q=label%3Abug).
 - Also make sure to search the internet (including Stack Overflow) to see if users outside of the GitHub community have
 discussed the issue.
-- Collect information about the bug:
-- Stack trace (Traceback)
 
 ---
 
 #### Before Submitting a Bug Report
-- OS, Platform and Version (Windows, Linux, macOS, x86, ARM)
-- Version of the interpreter, compiler, SDK, runtime environment, package manager, depending on what seems relevant.
-- Possibly your input and the output
+- Collect information about the bug:
+		- Stack trace (Traceback)
+		- OS, Platform and Version (Windows, Linux, macOS, x86, ARM)
+		- Version of the interpreter, compiler, SDK, runtime environment, package manager, depending on what seems relevant.
+		- Possibly your input and the output
 
 ---
 
@@ -191,9 +180,8 @@ for a review.
 
 ##### Make changes locally
 - Using GitHub Desktop:
-- [Getting started with GitHub Desktop](https://docs.github.com/en/desktop/installing-and-configuring-github-desktop/getting-started-with-github-desktop)
+		- [Getting started with GitHub Desktop](https://docs.github.com/en/desktop/installing-and-configuring-github-desktop/getting-started-with-github-desktop)
 will guide you through setting up Desktop.
-- Using the command line:
 - Install or make sure **Golang** is updated.
 
 ---

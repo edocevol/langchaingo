@@ -5,21 +5,19 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-
 	"github.com/tmc/langchaingo/schema"
 )
 
 func TestMarkdownHeaderTextSplitter_SplitText(t *testing.T) {
 	t.Parallel()
+
 	type testCase struct {
-		name         string
 		markdown     string
 		expectedDocs []schema.Document
 	}
 
 	testCases := []testCase{
 		{
-			name: "split by header",
 			markdown: `
 ### This is a header
 
@@ -47,7 +45,6 @@ func TestMarkdownHeaderTextSplitter_SplitText(t *testing.T) {
 			},
 		},
 		{
-			name:     "hence will be ignored",
 			markdown: "example code:\n```go\nfunc main() {}\n```",
 			expectedDocs: []schema.Document{
 				{PageContent: "example code:", Metadata: map[string]any{}},
@@ -57,15 +54,13 @@ func TestMarkdownHeaderTextSplitter_SplitText(t *testing.T) {
 
 	splitter := NewMarkdownHeaderTextSplitter(WithChunkSize(64), WithChunkOverlap(32))
 	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			docs, err := CreateDocuments(splitter, []string{tc.markdown}, nil)
-			assert.NoError(t, err)
-			assert.Equal(t, tc.expectedDocs, docs)
-		})
+		docs, err := CreateDocuments(splitter, []string{tc.markdown}, nil)
+		assert.NoError(t, err)
+		assert.Equal(t, tc.expectedDocs, docs)
 	}
 }
 
-// TestMarkdownHeaderTextSplitter_Table markdown always split by line
+// TestMarkdownHeaderTextSplitter_Table markdown always split by line.
 func TestMarkdownHeaderTextSplitter_Table(t *testing.T) {
 	t.Parallel()
 	type testCase struct {
@@ -96,24 +91,22 @@ func TestMarkdownHeaderTextSplitter_Table(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		t.Run("chunk size 64", func(t *testing.T) {
-			splitter := NewMarkdownHeaderTextSplitter(WithChunkSize(64), WithChunkOverlap(32))
-			docs, err := CreateDocuments(splitter, []string{tc.markdown}, nil)
-			assert.NoError(t, err)
-			assert.Equal(t, tc.expectedDocs, docs)
-		})
+		splitter := NewMarkdownHeaderTextSplitter(WithChunkSize(64), WithChunkOverlap(32))
+		docs, err := CreateDocuments(splitter, []string{tc.markdown}, nil)
+		assert.NoError(t, err)
+		assert.Equal(t, tc.expectedDocs, docs)
 
-		t.Run("chunk size 512", func(t *testing.T) {
-			splitter := NewMarkdownHeaderTextSplitter(WithChunkSize(512), WithChunkOverlap(64))
-			docs, err := CreateDocuments(splitter, []string{tc.markdown}, nil)
-			assert.NoError(t, err)
-			assert.Equal(t, tc.expectedDocs, docs)
-		})
+		splitter = NewMarkdownHeaderTextSplitter(WithChunkSize(512), WithChunkOverlap(64))
+		docs, err = CreateDocuments(splitter, []string{tc.markdown}, nil)
+		assert.NoError(t, err)
+		assert.Equal(t, tc.expectedDocs, docs)
 	}
 }
 
 func TestMarkdownHeaderTextSplitter(t *testing.T) {
-	data, err := os.ReadFile("../CONTRIBUTING.md")
+	t.Parallel()
+
+	data, err := os.ReadFile("./testdata/example.md")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -124,7 +117,13 @@ func TestMarkdownHeaderTextSplitter(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	var pages string
 	for _, doc := range docs {
-		t.Log(doc.PageContent)
+		pages += doc.PageContent + "\n\n---\n\n"
+	}
+
+	err = os.WriteFile("./testdata/example_markdown_header_512.md", []byte(pages), os.ModeExclusive|os.ModePerm)
+	if err != nil {
+		t.Fatal(err)
 	}
 }

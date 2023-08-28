@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"unicode/utf8"
 
 	"gitlab.com/golang-commonmark/markdown"
 )
@@ -69,7 +70,7 @@ func (sp MarkdownHeaderTextSplitter) SplitText(s string) ([]string, error) {
 	return chunks, nil
 }
 
-// markdownContext the helper
+// markdownContext the helper.
 type markdownContext struct {
 	// startAt represents the start position of the cursor in tokens
 	startAt int
@@ -78,12 +79,16 @@ type markdownContext struct {
 	// tokens represents the markdown tokens
 	tokens []markdown.Token
 
-	// hContent represents the current header(H1、H2 etc.) content
-	hContent string
-	// hContentAppend represents whether hContent has been appended to chunks
-	hContentAppend bool
-	// indentLevel represents the current indent level for ordered and unordered lists
+	// hTitle represents the current header(H1、H2 etc.) content
+	hTitle string
+	// hTitlePrepended represents whether hTitle has been appended to chunks
+	hTitlePrepended bool
+	hTitleSkipFirst bool
+
+	// indentLevel represents the current indent level for ordered、unordered lists
 	indentLevel int
+	// sectionTitle represents the current section title for ordered、unordered lists and any other except headers
+	sectionTitle string
 
 	// chunks represents the final chunks
 	chunks []string
@@ -99,11 +104,11 @@ type markdownContext struct {
 func (mc *markdownContext) clone(startAt, endAt int) *markdownContext {
 	subTokens := mc.tokens[startAt : endAt+1]
 	return &markdownContext{
-		endAt:          len(subTokens),
-		tokens:         subTokens,
-		hContent:       mc.hContent,
-		hContentAppend: mc.hContentAppend,
-		indentLevel:    mc.indentLevel,
+		endAt:  len(subTokens),
+		tokens: subTokens,
+		// hTitle:          mc.hTitle,
+		hTitlePrepended: mc.hTitlePrepended,
+		indentLevel:     mc.indentLevel,
 
 		chunkSize:      mc.chunkSize,
 		chunkOverlap:   mc.chunkOverlap,
@@ -116,7 +121,6 @@ func (mc *markdownContext) splitText() []string {
 		token := mc.tokens[idx]
 		switch token.(type) {
 		case *markdown.HeadingOpen:
-			mc.applyToChunks() // change header, apply to chunks
 			mc.onMDHeader()
 		case *markdown.BulletListOpen:
 			mc.onMDBulletList()
@@ -160,11 +164,11 @@ func (mc *markdownContext) onMDHeader() {
 		return
 	}
 
-	hm := repeatString(header.HLevel, "#")
-	mc.hContent = fmt.Sprintf("%s %s", hm, inline.Content)
-	mc.hContentAppend = false
+	mc.applyToChunks() // change header, apply to chunks
 
-	return
+	hm := repeatString(header.HLevel, "#")
+	mc.hTitle = fmt.Sprintf("%s %s", hm, inline.Content)
+	mc.hTitlePrepended = false
 }
 
 // onMDParagraph splits paragraph
@@ -199,6 +203,7 @@ func (mc *markdownContext) onMDQuote() {
 	}
 
 	tmpMC := mc.clone(mc.startAt+1, endAt-1)
+	tmpMC.hTitle = ""
 	chunks := tmpMC.splitText()
 
 	for _, chunk := range chunks {
@@ -206,8 +211,11 @@ func (mc *markdownContext) onMDQuote() {
 		for i, line := range lines {
 			lines[i] = fmt.Sprintf("> %s", line)
 		}
-		mc.joinSnippet(strings.Join(lines, "\n"))
+		chunk = strings.Join(lines, "\n")
+		mc.joinSnippet(chunk)
 	}
+
+	mc.applyToChunks()
 }
 
 // onMDBulletList splits bullet list
@@ -220,15 +228,15 @@ func (mc *markdownContext) onMDBulletList() {
 	}()
 
 	mc.indentLevel++
-	oldHContent := mc.hContent
+	oldHContent := mc.hTitle
 
 	// move to ListItemOpen
 	mc.startAt++
 
-	mc.splitListItem("-", endAt)
+	mc.onListItem("-", endAt)
 
 	// reset header mark
-	mc.hContent = oldHContent
+	mc.hTitle = oldHContent
 	mc.indentLevel--
 }
 
@@ -242,15 +250,15 @@ func (mc *markdownContext) onMDOrderedList() {
 	}()
 
 	mc.indentLevel++
-	oldHContent := mc.hContent
+	oldHContent := mc.hTitle
 
 	// move to ListItemOpen
-	mc.startAt += 1
+	mc.startAt++
 
-	mc.splitListItem("-", endAt)
+	mc.onListItem("-", endAt)
 
 	// reset header mark
-	mc.hContent = oldHContent
+	mc.hTitle = oldHContent
 	mc.indentLevel--
 }
 
@@ -270,10 +278,10 @@ func (mc *markdownContext) splitInline(inline *markdown.Inline) {
 	mc.joinSnippet(inline.Content)
 }
 
-// splitListItem splits list item for bullet list and ordered list
+// onListItem splits list item for bullet list and ordered list
 //
 // format: ListItemOpen/[ParagraphOpen/Inline/ParagraphClose/Any]*/ListItemClose
-func (mc *markdownContext) splitListItem(mark string, endAt int) {
+func (mc *markdownContext) onListItem(mark string, endAt int) {
 	item := mc.tokens[mc.startAt]
 	if _, ok := item.(*markdown.ListItemOpen); !ok {
 		return
@@ -295,8 +303,7 @@ func (mc *markdownContext) splitListItem(mark string, endAt int) {
 	// check there is any other tokens belongs to current BulletList or OrderedList
 	if mc.startAt < endAt {
 		// check next token is ListItemOpen
-		_, ok := mc.tokens[mc.startAt+1].(*markdown.ListItemOpen)
-		if ok {
+		if _, ok := mc.tokens[mc.startAt+1].(*markdown.ListItemOpen); ok {
 			// append current list title to current chunk
 			mc.joinSnippet(listTitle)
 
@@ -304,7 +311,15 @@ func (mc *markdownContext) splitListItem(mark string, endAt int) {
 			mc.startAt++
 
 			// recursive to get all the list items
-			mc.splitListItem(mark, endAt)
+			mc.onListItem(mark, endAt)
+			return
+		}
+
+		if _, ok := mc.tokens[mc.startAt+1].(*markdown.BulletListClose); !ok {
+			return
+		}
+
+		if _, ok := mc.tokens[mc.startAt+1].(*markdown.OrderedListClose); !ok {
 			return
 		}
 
@@ -312,7 +327,7 @@ func (mc *markdownContext) splitListItem(mark string, endAt int) {
 		tempMC := mc.clone(mc.startAt, endAt-1)
 		tempMC.indentLevel++
 
-		tempMC.hContent = listTitle
+		tempMC.hTitle = listTitle
 		tempChunks := tempMC.splitText()
 
 		// append sub chunks to current chunk
@@ -348,7 +363,9 @@ func (mc *markdownContext) onMDTable() {
 	mc.splitTableRows(header, bodies)
 }
 
-// splitTableRows splits table rows, each row is a single Document
+// splitTableRows splits table rows, each row is a single Document.
+//
+//nolint:cyclop
 func (mc *markdownContext) splitTableRows(header []string, bodies [][]string) {
 	headnoteEmpty := false
 	for _, h := range header {
@@ -496,40 +513,41 @@ func (mc *markdownContext) splitTableBody() [][]string {
 	}
 }
 
-// joinSnippet join sub snippet to current total snippet
+// joinSnippet join sub snippet to current total snippet.
 func (mc *markdownContext) joinSnippet(snippet string) {
 	if mc.curSnippet == "" {
 		mc.curSnippet = snippet
 		return
 	}
 
-	// append snippet to current chunk with new line
-	mc.curSnippet = fmt.Sprintf("%s\n%s", mc.curSnippet, snippet)
-
 	// check whether current chunk exceeds chunk size, if so, apply to chunks
-	if len(mc.curSnippet) > mc.chunkSize {
+	if utf8.RuneCountInString(mc.curSnippet)+utf8.RuneCountInString(snippet) >= mc.chunkSize {
 		mc.applyToChunks()
+		mc.curSnippet = snippet
+	} else {
+		mc.curSnippet = fmt.Sprintf("%s\n%s", mc.curSnippet, snippet)
 	}
-
-	return
 }
 
-// applyToChunks applies current snippet to chunks
+// applyToChunks applies current snippet to chunks.
 func (mc *markdownContext) applyToChunks() {
 	defer func() {
 		mc.curSnippet = ""
 	}()
 
+	var chunks []string
 	// check whether current chunk is over ChunkSize，if so, re-split current chunk
-	chunks, err := mc.secondSplitter.SplitText(mc.curSnippet)
-	if err != nil {
-		return
+	if utf8.RuneCountInString(mc.curSnippet) <= mc.chunkSize+mc.chunkOverlap {
+		chunks = []string{mc.curSnippet}
+	} else {
+		// split current snippet to chunks
+		chunks, _ = mc.secondSplitter.SplitText(mc.curSnippet)
 	}
 
 	// if there is only H1/H2 and so on, just apply the `Header Title` to chunks
-	if len(chunks) == 0 && mc.hContent != "" && !mc.hContentAppend {
-		mc.chunks = append(mc.chunks, mc.hContent)
-		mc.hContentAppend = true
+	if len(chunks) == 0 && mc.hTitle != "" && !mc.hTitlePrepended {
+		mc.chunks = append(mc.chunks, mc.hTitle)
+		mc.hTitlePrepended = true
 		return
 	}
 
@@ -538,16 +556,16 @@ func (mc *markdownContext) applyToChunks() {
 			continue
 		}
 
-		mc.hContentAppend = true
-		if mc.hContent != "" {
+		mc.hTitlePrepended = true
+		if mc.hTitle != "" {
 			// prepend `Header Title` to chunk
-			chunk = fmt.Sprintf("%s\n%s", mc.hContent, chunk)
+			chunk = fmt.Sprintf("%s\n%s", mc.hTitle, chunk)
 		}
 		mc.chunks = append(mc.chunks, chunk)
 	}
 }
 
-// repeatString repeats the initChar for count times
+// repeatString repeats the initChar for count times.
 func repeatString(count int, initChar string) string {
 	var s string
 	for i := 0; i < count; i++ {
@@ -556,8 +574,8 @@ func repeatString(count int, initChar string) string {
 	return s
 }
 
-// closeTypes represents the close operation type for each open operation type
-var closeTypes = map[reflect.Type]reflect.Type{
+// closeTypes represents the close operation type for each open operation type.
+var closeTypes = map[reflect.Type]reflect.Type{ //nolint:gochecknoglobals
 	reflect.TypeOf(&markdown.HeadingOpen{}):     reflect.TypeOf(&markdown.HeadingClose{}),
 	reflect.TypeOf(&markdown.BulletListOpen{}):  reflect.TypeOf(&markdown.BulletListClose{}),
 	reflect.TypeOf(&markdown.OrderedListOpen{}): reflect.TypeOf(&markdown.OrderedListClose{}),
@@ -570,8 +588,8 @@ var closeTypes = map[reflect.Type]reflect.Type{
 	reflect.TypeOf(&markdown.TbodyOpen{}):       reflect.TypeOf(&markdown.TbodyClose{}),
 }
 
-// indexOfCloseTag returns the index of the close tag for the open tag at startAt
-func indexOfCloseTag(tokens []markdown.Token, startAt int) (end int) {
+// indexOfCloseTag returns the index of the close tag for the open tag at startAt.
+func indexOfCloseTag(tokens []markdown.Token, startAt int) int {
 	sameCount := 0
 	openType := reflect.ValueOf(tokens[startAt]).Type()
 	closeType := closeTypes[openType]

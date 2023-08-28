@@ -9,6 +9,21 @@ type Options struct {
 	EncodingName      string
 	AllowedSpecial    []string
 	DisallowedSpecial []string
+	SecondSplitter    TextSplitter
+}
+
+// DefaultOptions returns the default options for all text splitter.
+func DefaultOptions() Options {
+	return Options{
+		ChunkSize:    _defaultTokenChunkSize,
+		ChunkOverlap: _defaultTokenChunkOverlap,
+		Separators:   []string{"\n\n", "\n", " ", ""},
+
+		ModelName:         _defaultTokenModelName,
+		EncodingName:      _defaultTokenEncoding,
+		AllowedSpecial:    []string{},
+		DisallowedSpecial: []string{"all"},
+	}
 }
 
 // Option is a function that can be used to set options for a text splitter.
@@ -60,5 +75,12 @@ func WithAllowedSpecial(allowedSpecial []string) Option {
 func WithDisallowedSpecial(disallowedSpecial []string) Option {
 	return func(o *Options) {
 		o.DisallowedSpecial = disallowedSpecial
+	}
+}
+
+// WithSecondSplitter sets the second splitter for a text splitter.
+func WithSecondSplitter(secondSplitter TextSplitter) Option {
+	return func(o *Options) {
+		o.SecondSplitter = secondSplitter
 	}
 }

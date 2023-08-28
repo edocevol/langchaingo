@@ -8,24 +8,28 @@ import (
 )
 
 // NewMarkdownHeaderTextSplitter creates a new markdown header text splitter.
-func NewMarkdownHeaderTextSplitter(options ...Option) *MarkdownHeaderTextSplitter {
+func NewMarkdownHeaderTextSplitter(opts ...Option) *MarkdownHeaderTextSplitter {
+	options := DefaultOptions()
+
+	for _, o := range opts {
+		o(&options)
+	}
+
 	sp := &MarkdownHeaderTextSplitter{
-		ChunkSize:      _defaultTokenChunkSize,
-		ChunkOverlap:   _defaultTokenChunkOverlap,
-		SecondSplitter: NewTokenSplitter(),
+		ChunkSize:      options.ChunkSize,
+		ChunkOverlap:   options.ChunkOverlap,
+		SecondSplitter: options.SecondSplitter,
 	}
-
-	var opts Options
-	for _, option := range options {
-		option(&opts)
-	}
-
-	if opts.ChunkSize != 0 {
-		sp.ChunkSize = opts.ChunkSize
-	}
-
-	if opts.ChunkOverlap != 0 {
-		sp.ChunkOverlap = opts.ChunkOverlap
+	if sp.SecondSplitter == nil {
+		sp.SecondSplitter = NewRecursiveCharacter(
+			WithChunkSize(options.ChunkSize),
+			WithChunkOverlap(options.ChunkOverlap),
+			WithSeparators([]string{
+				"\n\n", // new line
+				"\n",   // new line
+				" ",    // space
+			}),
+		)
 	}
 
 	return sp
@@ -33,7 +37,11 @@ func NewMarkdownHeaderTextSplitter(options ...Option) *MarkdownHeaderTextSplitte
 
 var _ TextSplitter = (*MarkdownHeaderTextSplitter)(nil)
 
-// MarkdownHeaderTextSplitter markdown header text splitter
+// MarkdownHeaderTextSplitter markdown header text splitter.
+//
+// Now, we support H1/H2/H3/H4/H5/H6, BulletList, OrderedList, Table, Paragraph, Blockquote,
+// other format will be ignored. If your origin document is HTML, you purify and convert to markdown,
+// then split it.
 type MarkdownHeaderTextSplitter struct {
 	ChunkSize    int
 	ChunkOverlap int
@@ -51,13 +59,11 @@ func (sp MarkdownHeaderTextSplitter) SplitText(s string) ([]string, error) {
 		endAt:          len(tokens),
 		tokens:         tokens,
 		chunkSize:      sp.ChunkSize,
+		chunkOverlap:   sp.ChunkOverlap,
 		secondSplitter: sp.SecondSplitter,
 	}
 
 	chunks := mc.splitText()
-	if len(chunks) == 0 {
-		return sp.SecondSplitter.SplitText(s)
-	}
 
 	return chunks, nil
 }
@@ -83,7 +89,8 @@ type markdownContext struct {
 	// curSnippet represents the current short markdown-format chunk
 	curSnippet string
 	// chunkSize represents the max chunk size, when exceeds, it will be split again
-	chunkSize int
+	chunkSize    int
+	chunkOverlap int
 	// secondSplitter re-split markdown single long paragraph into chunks
 	secondSplitter TextSplitter
 }
@@ -98,6 +105,7 @@ func (mc *markdownContext) clone(startAt, endAt int) *markdownContext {
 		indentLevel:    mc.indentLevel,
 
 		chunkSize:      mc.chunkSize,
+		chunkOverlap:   mc.chunkOverlap,
 		secondSplitter: mc.secondSplitter,
 	}
 }
@@ -108,17 +116,17 @@ func (mc *markdownContext) splitText() []string {
 		switch token.(type) {
 		case *markdown.HeadingOpen:
 			mc.applyToChunks() // change header, apply to chunks
-			mc.splitHeader()
+			mc.onMDHeader()
 		case *markdown.BulletListOpen:
-			mc.splitBulletList()
+			mc.onMDBulletList()
 		case *markdown.OrderedListOpen:
-			mc.splitOrderedList()
+			mc.onMDOrderedList()
 		case *markdown.TableOpen:
-			mc.splitTable()
+			mc.onMDTable()
 		case *markdown.ParagraphOpen:
-			mc.splitParagraph()
+			mc.onMDParagraph()
 		case *markdown.BlockquoteOpen:
-			mc.splitQuote()
+			mc.onMDQuote()
 		default:
 			mc.startAt = indexOfCloseTag(mc.tokens, idx) + 1
 		}
@@ -131,10 +139,10 @@ func (mc *markdownContext) splitText() []string {
 	return mc.chunks
 }
 
-// splitHeader splits H1/H2/.../H6
+// onMDHeader splits H1/H2/.../H6
 //
 // format: HeadingOpen/Inline/HeadingClose
-func (mc *markdownContext) splitHeader() {
+func (mc *markdownContext) onMDHeader() {
 	endAt := indexOfCloseTag(mc.tokens, mc.startAt)
 	defer func() {
 		mc.startAt = endAt + 1
@@ -153,14 +161,15 @@ func (mc *markdownContext) splitHeader() {
 
 	hm := repeatString(header.HLevel, "#")
 	mc.hContent = fmt.Sprintf("%s %s", hm, inline.Content)
+	mc.hContentAppend = false
 
 	return
 }
 
-// splitParagraph splits paragraph
+// onMDParagraph splits paragraph
 //
 // format: ParagraphOpen/Inline/ParagraphClose
-func (mc *markdownContext) splitParagraph() {
+func (mc *markdownContext) onMDParagraph() {
 	endAt := indexOfCloseTag(mc.tokens, mc.startAt)
 	defer func() {
 		mc.startAt = endAt + 1
@@ -174,10 +183,10 @@ func (mc *markdownContext) splitParagraph() {
 	mc.splitInline(inline)
 }
 
-// splitQuote splits blockquote
+// onMDQuote splits blockquote
 //
 // format: BlockquoteOpen/[Any]*/BlockquoteClose
-func (mc *markdownContext) splitQuote() {
+func (mc *markdownContext) onMDQuote() {
 	endAt := indexOfCloseTag(mc.tokens, mc.startAt)
 	defer func() {
 		mc.startAt = endAt + 1
@@ -189,10 +198,10 @@ func (mc *markdownContext) splitQuote() {
 	mc.chunks = append(mc.chunks, chunks...)
 }
 
-// splitBulletList splits bullet list
+// onMDBulletList splits bullet list
 //
 // format: BulletListOpen/[ListItem]*/BulletListClose
-func (mc *markdownContext) splitBulletList() {
+func (mc *markdownContext) onMDBulletList() {
 	endAt := indexOfCloseTag(mc.tokens, mc.startAt)
 	defer func() {
 		mc.startAt = endAt + 1
@@ -204,18 +213,17 @@ func (mc *markdownContext) splitBulletList() {
 	// move to ListItemOpen
 	mc.startAt += 1
 
-	// TODO: use `1.` as mark
-	mc.splitListItem("*", endAt)
+	mc.splitListItem("-", endAt)
 
 	// reset header mark
 	mc.hContent = oldHContent
 	mc.indentLevel--
 }
 
-// splitOrderedList splits ordered list
+// onMDOrderedList splits ordered list
 //
 // format: BulletListOpen/[ListItem]*/BulletListClose
-func (mc *markdownContext) splitOrderedList() {
+func (mc *markdownContext) onMDOrderedList() {
 	endAt := indexOfCloseTag(mc.tokens, mc.startAt)
 	defer func() {
 		mc.startAt = endAt + 1
@@ -297,10 +305,10 @@ func (mc *markdownContext) splitListItem(mark string, endAt int) {
 	}
 }
 
-// splitTable splits table
+// onMDTable splits table
 //
 // format: TableOpen/THeadOpen/[*]/THeadClose/TBodyOpen/[*]/TBodyClose/TableClose
-func (mc *markdownContext) splitTable() {
+func (mc *markdownContext) onMDTable() {
 	endAt := indexOfCloseTag(mc.tokens, mc.startAt)
 	defer func() {
 		mc.startAt = endAt + 1
@@ -320,6 +328,11 @@ func (mc *markdownContext) splitTable() {
 	// already move to TBodyOpen
 	bodies := mc.splitTableBody()
 
+	mc.splitTableRows(header, bodies)
+}
+
+// splitTableRows splits table rows, each row is a single Document
+func (mc *markdownContext) splitTableRows(header []string, bodies [][]string) {
 	headnoteEmpty := false
 	for _, h := range header {
 		if h != "" {
@@ -334,11 +347,42 @@ func (mc *markdownContext) splitTable() {
 		bodies = bodies[1:]
 	}
 
+	headerMD := ""
+	for i, h := range header {
+		headerMD += fmt.Sprintf("| %s ", h)
+		if i == len(header)-1 {
+			headerMD += "|"
+		}
+	}
+	headerMD += "\n" // add new line
+
+	for i := 0; i < len(header); i++ {
+		headerMD += "| --- "
+		if i == len(header)-1 {
+			headerMD += "|"
+		}
+	}
+
+	if len(bodies) == 0 {
+		mc.joinSnippet(headerMD)
+		mc.applyToChunks()
+		return
+	}
+
 	// append table header
 	for _, row := range bodies {
-		for i, col := range row {
-			mc.joinSnippet(fmt.Sprintf("%s\n%s", header[i], col))
+		line := ""
+		for i := range row {
+			line += fmt.Sprintf("| %s ", row[i])
+			if i == len(row)-1 {
+				line += "|"
+			}
 		}
+
+		mc.joinSnippet(fmt.Sprintf("%s\n%s", headerMD, line))
+
+		// keep every row in a single Document
+		mc.applyToChunks()
 	}
 }
 
@@ -352,7 +396,7 @@ func (mc *markdownContext) splitTableHeader() []string {
 	}()
 
 	// check TrOpen
-	if _, ok := mc.tokens[mc.startAt+1].(*markdown.TrOpen); ok {
+	if _, ok := mc.tokens[mc.startAt+1].(*markdown.TrOpen); !ok {
 		return []string{}
 	}
 
@@ -377,6 +421,9 @@ func (mc *markdownContext) splitTableHeader() []string {
 		}
 
 		headers = append(headers, inline.Content)
+
+		// move th ThClose
+		mc.startAt++
 	}
 
 	return headers
@@ -440,7 +487,7 @@ func (mc *markdownContext) joinSnippet(snippet string) {
 	}
 
 	// append snippet to current chunk with new line
-	mc.curSnippet = fmt.Sprintf("%s\n\n%s", mc.curSnippet, snippet)
+	mc.curSnippet = fmt.Sprintf("%s\n%s", mc.curSnippet, snippet)
 
 	// check whether current chunk exceeds chunk size, if so, apply to chunks
 	if len(mc.curSnippet) > mc.chunkSize {
@@ -450,11 +497,10 @@ func (mc *markdownContext) joinSnippet(snippet string) {
 	return
 }
 
-// applyToChunks 将当前分块内容添加到 chunks 中
+// applyToChunks applies current snippet to chunks
 func (mc *markdownContext) applyToChunks() {
 	defer func() {
 		mc.curSnippet = ""
-		mc.hContentAppend = false
 	}()
 
 	// check whether current chunk is over ChunkSize，if so, re-split current chunk
@@ -476,9 +522,10 @@ func (mc *markdownContext) applyToChunks() {
 		}
 
 		mc.hContentAppend = true
-
-		// prepend `Header Title` to chunk
-		chunk := fmt.Sprintf("%s\n%s", mc.hContent, chunk)
+		if mc.hContent != "" {
+			// prepend `Header Title` to chunk
+			chunk = fmt.Sprintf("%s\n%s", mc.hContent, chunk)
+		}
 		mc.chunks = append(mc.chunks, chunk)
 	}
 }

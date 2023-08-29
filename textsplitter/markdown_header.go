@@ -143,13 +143,16 @@ func (mc *markdownContext) splitText() []string {
 func (mc *markdownContext) clone(startAt, endAt int) *markdownContext {
 	subTokens := mc.tokens[startAt : endAt+1]
 	return &markdownContext{
-		endAt:       len(subTokens),
-		tokens:      subTokens,
-		indentLevel: mc.indentLevel,
+		endAt:  len(subTokens),
+		tokens: subTokens,
+
+		hTitle:          mc.hTitle,
+		hTitlePrepended: mc.hTitlePrepended,
 
 		orderedList: mc.orderedList,
 		bulletList:  mc.bulletList,
 		listOrder:   mc.listOrder,
+		indentLevel: mc.indentLevel,
 
 		chunkSize:      mc.chunkSize,
 		chunkOverlap:   mc.chunkOverlap,
@@ -323,6 +326,7 @@ func (mc *markdownContext) onMDListItemParagraph() {
 	}
 
 	mc.joinSnippet(line)
+	mc.hTitle = ""
 }
 
 // onMDTable splits table
@@ -501,12 +505,14 @@ func (mc *markdownContext) applyToChunks() {
 	}()
 
 	var chunks []string
-	// check whether current chunk is over ChunkSize，if so, re-split current chunk
-	if utf8.RuneCountInString(mc.curSnippet) <= mc.chunkSize+mc.chunkOverlap {
-		chunks = []string{mc.curSnippet}
-	} else {
-		// split current snippet to chunks
-		chunks, _ = mc.secondSplitter.SplitText(mc.curSnippet)
+	if mc.curSnippet != "" {
+		// check whether current chunk is over ChunkSize，if so, re-split current chunk
+		if utf8.RuneCountInString(mc.curSnippet) <= mc.chunkSize+mc.chunkOverlap {
+			chunks = []string{mc.curSnippet}
+		} else {
+			// split current snippet to chunks
+			chunks, _ = mc.secondSplitter.SplitText(mc.curSnippet)
+		}
 	}
 
 	// if there is only H1/H2 and so on, just apply the `Header Title` to chunks
@@ -522,7 +528,7 @@ func (mc *markdownContext) applyToChunks() {
 		}
 
 		mc.hTitlePrepended = true
-		if mc.hTitle != "" {
+		if mc.hTitle != "" && !strings.Contains(mc.curSnippet, mc.hTitle) {
 			// prepend `Header Title` to chunk
 			chunk = fmt.Sprintf("%s\n%s", mc.hTitle, chunk)
 		}

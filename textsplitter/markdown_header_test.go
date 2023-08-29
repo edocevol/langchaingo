@@ -1,7 +1,6 @@
 package textsplitter
 
 import (
-	"fmt"
 	"os"
 	"testing"
 
@@ -132,8 +131,13 @@ func TestMarkdownHeaderTextSplitter(t *testing.T) {
 
 func TestMarkdownHeaderTextSplitter_BulletList(t *testing.T) {
 	t.Parallel()
-
-	markdown := `
+	type testCase struct {
+		markdown     string
+		expectedDocs []schema.Document
+	}
+	testCases := []testCase{
+		{
+			markdown: `
 - [Code of Conduct](#code-of-conduct)
 - [I Have a Question](#i-have-a-question)
 - [I Want To Contribute](#i-want-to-contribute)
@@ -150,15 +154,98 @@ func TestMarkdownHeaderTextSplitter_BulletList(t *testing.T) {
         - [Commit your update](#commit-your-update)
         - [Pull Request](#pull-request)
         - [Your PR is merged!](#your-pr-is-merged)
-`
-
-	splitter := NewMarkdownHeaderTextSplitter(WithChunkSize(512), WithChunkOverlap(64))
-	docs, err := CreateDocuments(splitter, []string{markdown}, nil)
-	if err != nil {
-		t.Fatal(err)
+`,
+			expectedDocs: []schema.Document{
+				{PageContent: `- [Code of Conduct](#code-of-conduct)
+- [I Have a Question](#i-have-a-question)`,
+					Metadata: map[string]any{}},
+				{PageContent: `- [I Want To Contribute](#i-want-to-contribute)
+  - [Reporting Bugs](#reporting-bugs)
+    - [Before Submitting a Bug Report](#before-submitting-a-bug-report)
+    - [How Do I Submit a Good Bug Report?](#how-do-i-submit-a-good-bug-report)
+  - [Suggesting Enhancements](#suggesting-enhancements)
+    - [Before Submitting an Enhancement](#before-submitting-an-enhancement)
+    - [How Do I Submit a Good Enhancement Suggestion?](#how-do-i-submit-a-good-enhancement-suggestion)`,
+					Metadata: map[string]any{},
+				},
+				{
+					PageContent: `  - [Your First Code Contribution](#your-first-code-contribution)
+    - [Make Changes](#make-changes)
+      - [Make changes in the UI](#make-changes-in-the-ui)
+      - [Make changes locally](#make-changes-locally)
+    - [Commit your update](#commit-your-update)
+    - [Pull Request](#pull-request)
+    - [Your PR is merged!](#your-pr-is-merged)`,
+					Metadata: map[string]any{},
+				},
+			},
+		},
 	}
 
-	for _, doc := range docs {
-		fmt.Printf("%s\n-------------------\n", doc.PageContent)
+	for _, tc := range testCases {
+		splitter := NewMarkdownHeaderTextSplitter(WithChunkSize(512), WithChunkOverlap(64))
+		docs, err := CreateDocuments(splitter, []string{tc.markdown}, nil)
+		assert.NoError(t, err)
+		assert.Equal(t, tc.expectedDocs, docs)
+	}
+}
+
+func TestMarkdownHeaderTextSplitter_HeaderAfterHeader(t *testing.T) {
+	t.Parallel()
+
+	type testCase struct {
+		markdown     string
+		expectedDocs []schema.Document
+	}
+
+	testCases := []testCase{
+		{
+			markdown: `
+### Your First Code Contribution
+
+#### Make Changes
+
+##### Make changes in the UI
+
+Click **Make a contribution** at the bottom of any docs page to make small changes such as a typo, sentence fix, or a
+broken link. This takes you to the .md file where you can make your changes and [create a pull request](#pull-request)
+for a review.
+
+##### Make changes locally
+
+1. Fork the repository.
+
+2. Install or make sure **Golang** is updated.
+
+3. Create a working branch and start with your changes!
+`,
+			expectedDocs: []schema.Document{
+				{
+					PageContent: `### Your First Code Contribution`, Metadata: map[string]any{},
+				},
+				{
+					PageContent: `#### Make Changes`, Metadata: map[string]any{},
+				},
+				{
+					PageContent: `##### Make changes in the UI
+Click **Make a contribution** at the bottom of any docs page to make small changes such as a typo, sentence fix, or a
+broken link. This takes you to the .md file where you can make your changes and [create a pull request](#pull-request)
+for a review.`, Metadata: map[string]any{},
+				},
+				{
+					PageContent: `##### Make changes locally
+1. Fork the repository.
+2. Install or make sure **Golang** is updated.
+3. Create a working branch and start with your changes!`, Metadata: map[string]any{},
+				},
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		splitter := NewMarkdownHeaderTextSplitter(WithChunkSize(512), WithChunkOverlap(64))
+		docs, err := CreateDocuments(splitter, []string{tc.markdown}, nil)
+		assert.NoError(t, err)
+		assert.Equal(t, tc.expectedDocs, docs)
 	}
 }

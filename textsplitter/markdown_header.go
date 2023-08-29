@@ -22,6 +22,7 @@ func NewMarkdownHeaderTextSplitter(opts ...Option) *MarkdownHeaderTextSplitter {
 		ChunkOverlap:   options.ChunkOverlap,
 		SecondSplitter: options.SecondSplitter,
 	}
+
 	if sp.SecondSplitter == nil {
 		sp.SecondSplitter = NewRecursiveCharacter(
 			WithChunkSize(options.ChunkSize),
@@ -83,12 +84,13 @@ type markdownContext struct {
 	hTitle string
 	// hTitlePrepended represents whether hTitle has been appended to chunks
 	hTitlePrepended bool
-	hTitleSkipFirst bool
+
+	orderedList bool
+	bulletList  bool
+	listOrder   int
 
 	// indentLevel represents the current indent level for ordered、unordered lists
 	indentLevel int
-	// sectionTitle represents the current section title for ordered、unordered lists and any other except headers
-	sectionTitle string
 
 	// chunks represents the final chunks
 	chunks []string
@@ -97,6 +99,7 @@ type markdownContext struct {
 	// chunkSize represents the max chunk size, when exceeds, it will be split again
 	chunkSize    int
 	chunkOverlap int
+
 	// secondSplitter re-split markdown single long paragraph into chunks
 	secondSplitter TextSplitter
 }
@@ -110,6 +113,8 @@ func (mc *markdownContext) clone(startAt, endAt int) *markdownContext {
 		hTitlePrepended: mc.hTitlePrepended,
 		indentLevel:     mc.indentLevel,
 
+		orderedList: mc.orderedList,
+
 		chunkSize:      mc.chunkSize,
 		chunkOverlap:   mc.chunkOverlap,
 		secondSplitter: mc.secondSplitter,
@@ -122,16 +127,18 @@ func (mc *markdownContext) splitText() []string {
 		switch token.(type) {
 		case *markdown.HeadingOpen:
 			mc.onMDHeader()
-		case *markdown.BulletListOpen:
-			mc.onMDBulletList()
-		case *markdown.OrderedListOpen:
-			mc.onMDOrderedList()
 		case *markdown.TableOpen:
 			mc.onMDTable()
 		case *markdown.ParagraphOpen:
 			mc.onMDParagraph()
 		case *markdown.BlockquoteOpen:
 			mc.onMDQuote()
+		case *markdown.BulletListOpen:
+			mc.onMDBulletList()
+		case *markdown.OrderedListOpen:
+			mc.onMDOrderedList()
+		case *markdown.ListItemOpen:
+			mc.onListItem()
 		default:
 			mc.startAt = indexOfCloseTag(mc.tokens, idx) + 1
 		}
@@ -225,19 +232,32 @@ func (mc *markdownContext) onMDBulletList() {
 	endAt := indexOfCloseTag(mc.tokens, mc.startAt)
 	defer func() {
 		mc.startAt = endAt + 1
+		mc.indentLevel--
+
+		mc.bulletList = false
+		mc.listOrder = 0
 	}()
 
 	mc.indentLevel++
-	oldHContent := mc.hTitle
+	mc.bulletList = true
 
-	// move to ListItemOpen
+	// try move to ListItemOpen
 	mc.startAt++
 
-	mc.onListItem("-", endAt)
+	tempMD := mc.clone(mc.startAt, endAt-1)
+	tempChunk := tempMD.splitText()
 
-	// reset header mark
-	mc.hTitle = oldHContent
-	mc.indentLevel--
+	for _, chunk := range tempChunk {
+		if tempMD.indentLevel > 1 {
+			lines := strings.Split(chunk, "\n")
+			for i, line := range lines {
+				lines[i] = fmt.Sprintf("  %s", line)
+			}
+			chunk = strings.Join(lines, "\n")
+		}
+
+		mc.joinSnippet(chunk)
+	}
 }
 
 // onMDOrderedList splits ordered list
@@ -247,105 +267,83 @@ func (mc *markdownContext) onMDOrderedList() {
 	endAt := indexOfCloseTag(mc.tokens, mc.startAt)
 	defer func() {
 		mc.startAt = endAt + 1
+		mc.indentLevel--
+
+		mc.orderedList = false
+		mc.listOrder = 0
 	}()
 
 	mc.indentLevel++
-	oldHContent := mc.hTitle
 
-	// move to ListItemOpen
+	// try move to ListItemOpen
+	mc.startAt++
+	mc.orderedList = true
+
+	tempMD := mc.clone(mc.startAt, endAt-1)
+	tempChunk := tempMD.splitText()
+
+	for _, chunk := range tempChunk {
+		if tempMD.indentLevel > 1 {
+			lines := strings.Split(chunk, "\n")
+			for i, line := range lines {
+				lines[i] = fmt.Sprintf("  %s", line)
+			}
+			chunk = strings.Join(lines, "\n")
+		}
+		mc.joinSnippet(chunk)
+	}
+}
+
+// onListItem the item of ordered list or unordered list, maybe contains sub BulletList or OrderedList.
+// /
+// format1: ListItemOpen/ParagraphOpen/Inline/ParagraphClose/ListItemClose
+// format2: ListItemOpen/ParagraphOpen/Inline/ParagraphClose/[BulletList]*/ListItemClose
+func (mc *markdownContext) onListItem() {
+	endAt := indexOfCloseTag(mc.tokens, mc.startAt)
+	defer func() {
+		mc.startAt = endAt + 1
+	}()
+
 	mc.startAt++
 
-	mc.onListItem("-", endAt)
-
-	// reset header mark
-	mc.hTitle = oldHContent
-	mc.indentLevel--
+	for mc.startAt < endAt {
+		nextToken := mc.tokens[mc.startAt]
+		switch nextToken.(type) {
+		case *markdown.ParagraphOpen:
+			mc.onMDListItemParagraph()
+		case *markdown.BulletListOpen:
+			mc.onMDBulletList()
+		case *markdown.OrderedListOpen:
+			mc.onMDOrderedList()
+		default:
+			mc.startAt++
+		}
+	}
 }
 
-// splitInline splits inline
-//
-// format: Link/Image/Text
-func (mc *markdownContext) splitInline(inline *markdown.Inline) {
-	if link, ok := inline.Children[0].(*markdown.LinkOpen); ok && len(inline.Children) == 3 {
-		mc.joinSnippet(fmt.Sprintf(`[%s](%s)`, link.Title, link.Href))
-		return
-	}
+// onMDListItemParagraph splits list item paragraph
+func (mc *markdownContext) onMDListItemParagraph() {
+	endAt := indexOfCloseTag(mc.tokens, mc.startAt)
+	defer func() {
+		mc.startAt = endAt + 1
+	}()
 
-	if _, ok := inline.Children[0].(*markdown.Image); ok {
-		return
-	}
-
-	mc.joinSnippet(inline.Content)
-}
-
-// onListItem splits list item for bullet list and ordered list
-//
-// format: ListItemOpen/[ParagraphOpen/Inline/ParagraphClose/Any]*/ListItemClose
-func (mc *markdownContext) onListItem(mark string, endAt int) {
-	item := mc.tokens[mc.startAt]
-	if _, ok := item.(*markdown.ListItemOpen); !ok {
-		return
-	}
-
-	// check inline before paragraph
-	inline, ok := mc.tokens[mc.startAt+2].(*markdown.Inline)
+	inline, ok := mc.tokens[mc.startAt+1].(*markdown.Inline)
 	if !ok {
 		return
 	}
-	// move to Inline
-	mc.startAt += 2
 
-	listTitle := fmt.Sprintf("%s%s %s", repeatString(mc.indentLevel-1, "\t"), mark, inline.Content)
-
-	// check there is any other tokens belongs to current BulletList or OrderedList
-	if mc.startAt+3 < endAt {
-		preOfNextItem := mc.tokens[mc.startAt+2]
-		switch preOfNextItem.(type) {
-		case *markdown.BulletListOpen, *markdown.OrderedListOpen:
-			mc.startAt += 2
-			subEndAt := indexOfCloseTag(mc.tokens, mc.startAt)
-			// check next token is ParagraphOpen or any other tokens
-			tempMC := mc.clone(mc.startAt, subEndAt-1)
-			tempMC.indentLevel++
-
-			tempMC.hTitle = listTitle
-			tempChunks := tempMC.splitText()
-
-			// append sub chunks to current chunk
-			for _, chunk := range tempChunks {
-				mc.joinSnippet(chunk)
-			}
-			mc.startAt = subEndAt + 1
-			mc.onListItem(mark, endAt)
-			return
-		}
-
-		// check next token is ListItemOpen
-		nextItem := mc.tokens[mc.startAt+3]
-		if _, ok := nextItem.(*markdown.ListItemOpen); ok {
-			// append current list title to current chunk
-			mc.joinSnippet(listTitle)
-
-			// move to the next ListItemOpen
-			mc.startAt += 3
-
-			// recursive to get all the list items
-			mc.onListItem(mark, endAt)
-			return
-		}
-
-		if _, ok := nextItem.(*markdown.BulletListClose); ok {
-			mc.startAt += 5
-			mc.onListItem(mark, endAt)
-			return
-		}
-
-		if _, ok := nextItem.(*markdown.OrderedListClose); ok {
-			mc.startAt += 5
-			mc.onListItem(mark, endAt)
-			return
-		}
+	line := mc.splitInline(inline)
+	if mc.orderedList {
+		mc.listOrder++
+		line = fmt.Sprintf("%d. %s", mc.listOrder, line)
 	}
+
+	if mc.bulletList {
+		line = fmt.Sprintf("- %s", line)
+	}
+
+	mc.joinSnippet(line)
 }
 
 // onMDTable splits table
@@ -574,6 +572,13 @@ func (mc *markdownContext) applyToChunks() {
 		}
 		mc.chunks = append(mc.chunks, chunk)
 	}
+}
+
+// splitInline splits inline
+//
+// format: Link/Image/Text
+func (mc *markdownContext) splitInline(inline *markdown.Inline) string {
+	return inline.Content
 }
 
 // repeatString repeats the initChar for count times.

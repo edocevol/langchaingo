@@ -84,6 +84,7 @@ require (
 	github.com/go-sql-driver/mysql v1.7.1
 	github.com/gocolly/colly v1.2.0
 	github.com/google/go-cmp v0.5.9
+	github.com/google/martian v2.1.0+incompatible
 	github.com/jackc/pgx/v5 v5.4.1
 	github.com/ledongthuc/pdf v0.0.0-20220302134840-0c2507a12d80
 	github.com/mattn/go-sqlite3 v1.14.17

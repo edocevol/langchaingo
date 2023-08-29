@@ -1,10 +1,12 @@
 package textsplitter
 
 import (
+	"fmt"
 	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+
 	"github.com/tmc/langchaingo/schema"
 )
 
@@ -125,5 +127,36 @@ func TestMarkdownHeaderTextSplitter(t *testing.T) {
 	err = os.WriteFile("./testdata/example_markdown_header_512.md", []byte(pages), os.ModeExclusive|os.ModePerm)
 	if err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestMarkdownHeaderTextSplitter_BulletList(t *testing.T) {
+	markdown := `
+- [Code of Conduct](#code-of-conduct)
+- [I Have a Question](#i-have-a-question)
+- [I Want To Contribute](#i-want-to-contribute)
+    - [Reporting Bugs](#reporting-bugs)
+        - [Before Submitting a Bug Report](#before-submitting-a-bug-report)
+        - [How Do I Submit a Good Bug Report?](#how-do-i-submit-a-good-bug-report)
+    - [Suggesting Enhancements](#suggesting-enhancements)
+        - [Before Submitting an Enhancement](#before-submitting-an-enhancement)
+        - [How Do I Submit a Good Enhancement Suggestion?](#how-do-i-submit-a-good-enhancement-suggestion)
+    - [Your First Code Contribution](#your-first-code-contribution)
+        - [Make Changes](#make-changes)
+            - [Make changes in the UI](#make-changes-in-the-ui)
+            - [Make changes locally](#make-changes-locally)
+        - [Commit your update](#commit-your-update)
+        - [Pull Request](#pull-request)
+        - [Your PR is merged!](#your-pr-is-merged)
+`
+
+	splitter := NewMarkdownHeaderTextSplitter(WithChunkSize(512), WithChunkOverlap(64))
+	docs, err := CreateDocuments(splitter, []string{markdown}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, doc := range docs {
+		fmt.Printf("%s\n-------------------\n", doc.PageContent)
 	}
 }

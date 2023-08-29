@@ -20,28 +20,28 @@ community looks forward to your contributions. 🎉
 ## Table of Contents
 - [Code of Conduct](#code-of-conduct)
 - [I Have a Question](#i-have-a-question)
-- [I Want To Contribute](#i-want-to-contribute)
 
 ---
 
 ## Table of Contents
+- [I Want To Contribute](#i-want-to-contribute)
   - [Reporting Bugs](#reporting-bugs)
     - [Before Submitting a Bug Report](#before-submitting-a-bug-report)
     - [How Do I Submit a Good Bug Report?](#how-do-i-submit-a-good-bug-report)
-  [Suggesting Enhancements](#suggesting-enhancements)
+  - [Suggesting Enhancements](#suggesting-enhancements)
     - [Before Submitting an Enhancement](#before-submitting-an-enhancement)
     - [How Do I Submit a Good Enhancement Suggestion?](#how-do-i-submit-a-good-enhancement-suggestion)
-  [Your First Code Contribution](#your-first-code-contribution)
 
 ---
 
 ## Table of Contents
+  - [Your First Code Contribution](#your-first-code-contribution)
     - [Make Changes](#make-changes)
       - [Make changes in the UI](#make-changes-in-the-ui)
       - [Make changes locally](#make-changes-locally)
-    [Commit your update](#commit-your-update)
-    [Pull Request](#pull-request)
-    [Your PR is merged!](#your-pr-is-merged)
+    - [Commit your update](#commit-your-update)
+    - [Pull Request](#pull-request)
+    - [Your PR is merged!](#your-pr-is-merged)
 
 ---
 
@@ -64,11 +64,11 @@ Before you ask a question, it is best to search for existing [Issues](https://gi
 might help you. In case you have found a suitable issue and still need clarification, you can write your question in
 this issue. It is also advisable to search the internet for answers first.
 If you then still feel the need to ask a question and need clarification, we recommend the following:
+- Open an [Issue](https://github.com/tmc/langchaingo/issues/new).
 
 ---
 
 ## I Have a Question
-- Open an [Issue](https://github.com/tmc/langchaingo/issues/new).
 - Provide as much context as you can about what you're running into.
 - Provide project and platform versions (nodejs, npm, etc), depending on what seems relevant.
 We will then take care of the issue as soon as possible.
@@ -86,11 +86,11 @@ We will then take care of the issue as soon as possible.
 A good bug report shouldn't leave others needing to chase you up for more information. Therefore, we ask you to
 investigate carefully, collect information and describe the issue in detail in your report. Please complete the
 following steps in advance to help us fix any potential bug as fast as possible.
+- Make sure that you are using the latest version.
 
 ---
 
 #### Before Submitting a Bug Report
-- Make sure that you are using the latest version.
 - Determine if your bug is really a bug and not an error on your side e.g. using incompatible environment
 components/versions (Make sure that you have read the [documentation](https://pkg.go.dev/github.com/tmc/langchaingo).
 If you are looking for support, you might want to check [this section](#i-have-a-question)).
@@ -103,11 +103,11 @@ is not already a bug report existing for your bug or error in
 the [bug tracker](https://github.com/tmc/langchaingo/issues?q=label%3Abug).
 - Also make sure to search the internet (including Stack Overflow) to see if users outside of the GitHub community have
 discussed the issue.
-- Collect information about the bug:
 
 ---
 
 #### Before Submitting a Bug Report
+- Collect information about the bug:
   - Stack trace (Traceback)
   - OS, Platform and Version (Windows, Linux, macOS, x86, ARM)
   - Version of the interpreter, compiler, SDK, runtime environment, package manager, depending on what seems relevant.
@@ -137,11 +137,11 @@ recreate the issue on their own. This usually includes your code. For good bug r
 and create a reduced test case.
 - Provide the information you collected in the previous section.
 Once it's filed:
+- The project team will label the issue accordingly.
 
 ---
 
 #### How Do I Submit a Good Bug Report?
-- The project team will label the issue accordingly.
 - A team member will try to reproduce the issue with your provided steps. If there are no reproduction steps or no
 obvious way to reproduce the issue, the team will ask you for those steps and mark the issue as `needs-repro`. Bugs
 with the `needs-repro` tag will not be addressed until they are reproduced.
@@ -224,11 +224,11 @@ for a review.
   will guide you through setting up Desktop.
   - Once Desktop is set up, you can use it
   to [fork the repo](https://docs.github.com/en/desktop/contributing-and-collaborating-using-github-desktop/cloning-and-forking-repositories-from-github-desktop)!
-Using the command line:
 
 ---
 
 ##### Make changes locally
+- Using the command line:
   - [Fork the repo](https://docs.github.com/en/github/getting-started-with-github/fork-a-repo#fork-an-example-repository)
   so that you can make your changes without affecting the original project until you're ready to merge them.
 1. Install or make sure **Golang** is updated.
@@ -243,21 +243,21 @@ Commit the changes once you are happy with them. Don't forget to self-review to 
 
 #### Pull Request
 When you're finished with the changes, create a pull request, also known as a PR.
-
----
-
-#### Pull Request
 - Name your Pull Request title clearly, concisely, and prefixed with the name of primarily affected package you changed
 according to [Go Contribute Guideline](https://go.dev/doc/contribute#commit_messages). (such
 as `memory: added interfaces` or `util: added helpers`)
-- **We strive to conceptually align with the Python and TypeScript versions of Langchain. Please link/reference the
-associated concepts in those codebases when introducing a new concept.**
 
 ---
 
 #### Pull Request
+- **We strive to conceptually align with the Python and TypeScript versions of Langchain. Please link/reference the
+associated concepts in those codebases when introducing a new concept.**
 - Fill the "Ready for review" template so that we can review your PR. This template helps reviewers understand your
 changes as well as the purpose of your pull request.
+
+---
+
+#### Pull Request
 - Don't forget
 to [link PR to issue](https://docs.github.com/en/issues/tracking-your-work-with-issues/linking-a-pull-request-to-an-issue)
 if you are solving one.

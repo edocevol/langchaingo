@@ -108,24 +108,7 @@ type markdownContext struct {
 	secondSplitter TextSplitter
 }
 
-func (mc *markdownContext) clone(startAt, endAt int) *markdownContext {
-	subTokens := mc.tokens[startAt : endAt+1]
-	return &markdownContext{
-		endAt:  len(subTokens),
-		tokens: subTokens,
-		// hTitle:          mc.hTitle,
-		hTitlePrepended: mc.hTitlePrepended,
-		indentLevel:     mc.indentLevel,
-
-		orderedList: mc.orderedList,
-		bulletList:  mc.bulletList,
-
-		chunkSize:      mc.chunkSize,
-		chunkOverlap:   mc.chunkOverlap,
-		secondSplitter: mc.secondSplitter,
-	}
-}
-
+// splitText splits Markdown text.
 func (mc *markdownContext) splitText() []string {
 	for idx := mc.startAt; idx < mc.endAt; {
 		token := mc.tokens[idx]
@@ -154,6 +137,24 @@ func (mc *markdownContext) splitText() []string {
 	mc.applyToChunks()
 
 	return mc.chunks
+}
+
+// clone clones the markdownContext with sub tokens.
+func (mc *markdownContext) clone(startAt, endAt int) *markdownContext {
+	subTokens := mc.tokens[startAt : endAt+1]
+	return &markdownContext{
+		endAt:       len(subTokens),
+		tokens:      subTokens,
+		indentLevel: mc.indentLevel,
+
+		orderedList: mc.orderedList,
+		bulletList:  mc.bulletList,
+		listOrder:   mc.listOrder,
+
+		chunkSize:      mc.chunkSize,
+		chunkOverlap:   mc.chunkOverlap,
+		secondSplitter: mc.secondSplitter,
+	}
 }
 
 // onMDHeader splits H1/H2/.../H6
@@ -219,12 +220,7 @@ func (mc *markdownContext) onMDQuote() {
 	chunks := tmpMC.splitText()
 
 	for _, chunk := range chunks {
-		lines := strings.Split(chunk, "\n")
-		for i, line := range lines {
-			lines[i] = fmt.Sprintf("> %s", line)
-		}
-		chunk = strings.Join(lines, "\n")
-		mc.joinSnippet(chunk)
+		mc.joinSnippet(formatWithIndent(chunk, "> "))
 	}
 
 	mc.applyToChunks()
@@ -235,6 +231,8 @@ func (mc *markdownContext) onMDQuote() {
 // format: BulletListOpen/[ListItem]*/BulletListClose
 func (mc *markdownContext) onMDBulletList() {
 	mc.bulletList = true
+	mc.orderedList = false
+
 	mc.onMDList()
 }
 
@@ -243,6 +241,9 @@ func (mc *markdownContext) onMDBulletList() {
 // format: BulletListOpen/[ListItem]*/BulletListClose
 func (mc *markdownContext) onMDOrderedList() {
 	mc.orderedList = true
+	mc.bulletList = false
+	mc.listOrder = 0
+
 	mc.onMDList()
 }
 
@@ -251,11 +252,7 @@ func (mc *markdownContext) onMDList() {
 	endAt := indexOfCloseTag(mc.tokens, mc.startAt)
 	defer func() {
 		mc.startAt = endAt + 1
-
 		mc.indentLevel--
-		mc.orderedList = false
-		mc.bulletList = false
-		mc.listOrder = 0
 	}()
 
 	mc.indentLevel++
@@ -299,6 +296,8 @@ func (mc *markdownContext) onMDListItem() {
 			mc.startAt++
 		}
 	}
+
+	mc.applyToChunks()
 }
 
 // onMDListItemParagraph splits list item paragraph.

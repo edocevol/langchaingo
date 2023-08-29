@@ -1,7 +1,7 @@
 package textsplitter
 
 import (
-	"fmt"
+	"log"
 	"os"
 	"testing"
 
@@ -157,6 +157,6 @@ func TestMarkdownHeaderTextSplitter_BulletList(t *testing.T) {
 	}
 
 	for _, doc := range docs {
-		fmt.Printf("%s\n-------------------\n", doc.PageContent)
+		log.Printf("%s\n-------------------\n", doc.PageContent)
 	}
 }

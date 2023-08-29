@@ -85,9 +85,12 @@ type markdownContext struct {
 	// hTitlePrepended represents whether hTitle has been appended to chunks
 	hTitlePrepended bool
 
+	// orderedList represents whether current list is ordered list
 	orderedList bool
-	bulletList  bool
-	listOrder   int
+	// bulletList represents whether current list is bullet list
+	bulletList bool
+	// listOrder represents the current order number for ordered list
+	listOrder int
 
 	// indentLevel represents the current indent level for ordered、unordered lists
 	indentLevel int
@@ -97,7 +100,8 @@ type markdownContext struct {
 	// curSnippet represents the current short markdown-format chunk
 	curSnippet string
 	// chunkSize represents the max chunk size, when exceeds, it will be split again
-	chunkSize    int
+	chunkSize int
+	// chunkOverlap represents the overlap size for each chunk
 	chunkOverlap int
 
 	// secondSplitter re-split markdown single long paragraph into chunks
@@ -114,6 +118,7 @@ func (mc *markdownContext) clone(startAt, endAt int) *markdownContext {
 		indentLevel:     mc.indentLevel,
 
 		orderedList: mc.orderedList,
+		bulletList:  mc.bulletList,
 
 		chunkSize:      mc.chunkSize,
 		chunkOverlap:   mc.chunkOverlap,
@@ -138,7 +143,7 @@ func (mc *markdownContext) splitText() []string {
 		case *markdown.OrderedListOpen:
 			mc.onMDOrderedList()
 		case *markdown.ListItemOpen:
-			mc.onListItem()
+			mc.onMDListItem()
 		default:
 			mc.startAt = indexOfCloseTag(mc.tokens, idx) + 1
 		}
@@ -229,47 +234,27 @@ func (mc *markdownContext) onMDQuote() {
 //
 // format: BulletListOpen/[ListItem]*/BulletListClose
 func (mc *markdownContext) onMDBulletList() {
-	endAt := indexOfCloseTag(mc.tokens, mc.startAt)
-	defer func() {
-		mc.startAt = endAt + 1
-		mc.indentLevel--
-
-		mc.bulletList = false
-		mc.listOrder = 0
-	}()
-
-	mc.indentLevel++
 	mc.bulletList = true
-
-	// try move to ListItemOpen
-	mc.startAt++
-
-	tempMD := mc.clone(mc.startAt, endAt-1)
-	tempChunk := tempMD.splitText()
-
-	for _, chunk := range tempChunk {
-		if tempMD.indentLevel > 1 {
-			lines := strings.Split(chunk, "\n")
-			for i, line := range lines {
-				lines[i] = fmt.Sprintf("  %s", line)
-			}
-			chunk = strings.Join(lines, "\n")
-		}
-
-		mc.joinSnippet(chunk)
-	}
+	mc.onMDList()
 }
 
 // onMDOrderedList splits ordered list
 //
 // format: BulletListOpen/[ListItem]*/BulletListClose
 func (mc *markdownContext) onMDOrderedList() {
+	mc.orderedList = true
+	mc.onMDList()
+}
+
+// onMDList splits ordered list or unordered list.
+func (mc *markdownContext) onMDList() {
 	endAt := indexOfCloseTag(mc.tokens, mc.startAt)
 	defer func() {
 		mc.startAt = endAt + 1
-		mc.indentLevel--
 
+		mc.indentLevel--
 		mc.orderedList = false
+		mc.bulletList = false
 		mc.listOrder = 0
 	}()
 
@@ -277,28 +262,23 @@ func (mc *markdownContext) onMDOrderedList() {
 
 	// try move to ListItemOpen
 	mc.startAt++
-	mc.orderedList = true
 
+	// split list item with recursive
 	tempMD := mc.clone(mc.startAt, endAt-1)
 	tempChunk := tempMD.splitText()
-
 	for _, chunk := range tempChunk {
 		if tempMD.indentLevel > 1 {
-			lines := strings.Split(chunk, "\n")
-			for i, line := range lines {
-				lines[i] = fmt.Sprintf("  %s", line)
-			}
-			chunk = strings.Join(lines, "\n")
+			chunk = formatWithIndent(chunk, "  ")
 		}
 		mc.joinSnippet(chunk)
 	}
 }
 
-// onListItem the item of ordered list or unordered list, maybe contains sub BulletList or OrderedList.
+// onMDListItem the item of ordered list or unordered list, maybe contains sub BulletList or OrderedList.
 // /
 // format1: ListItemOpen/ParagraphOpen/Inline/ParagraphClose/ListItemClose
 // format2: ListItemOpen/ParagraphOpen/Inline/ParagraphClose/[BulletList]*/ListItemClose
-func (mc *markdownContext) onListItem() {
+func (mc *markdownContext) onMDListItem() {
 	endAt := indexOfCloseTag(mc.tokens, mc.startAt)
 	defer func() {
 		mc.startAt = endAt + 1
@@ -321,7 +301,7 @@ func (mc *markdownContext) onListItem() {
 	}
 }
 
-// onMDListItemParagraph splits list item paragraph
+// onMDListItemParagraph splits list item paragraph.
 func (mc *markdownContext) onMDListItemParagraph() {
 	endAt := indexOfCloseTag(mc.tokens, mc.startAt)
 	defer func() {
@@ -365,16 +345,14 @@ func (mc *markdownContext) onMDTable() {
 	mc.startAt++
 
 	// get table headers
-	header := mc.splitTableHeader()
+	header := mc.onTableHeader()
 	// already move to TBodyOpen
-	bodies := mc.splitTableBody()
+	bodies := mc.onTableBody()
 
 	mc.splitTableRows(header, bodies)
 }
 
 // splitTableRows splits table rows, each row is a single Document.
-//
-//nolint:cyclop
 func (mc *markdownContext) splitTableRows(header []string, bodies [][]string) {
 	headnoteEmpty := false
 	for _, h := range header {
@@ -390,22 +368,7 @@ func (mc *markdownContext) splitTableRows(header []string, bodies [][]string) {
 		bodies = bodies[1:]
 	}
 
-	headerMD := ""
-	for i, h := range header {
-		headerMD += fmt.Sprintf("| %s ", h)
-		if i == len(header)-1 {
-			headerMD += "|"
-		}
-	}
-	headerMD += "\n" // add new line
-
-	for i := 0; i < len(header); i++ {
-		headerMD += "| --- "
-		if i == len(header)-1 {
-			headerMD += "|"
-		}
-	}
-
+	headerMD := tableHeaderInMarkdown(header)
 	if len(bodies) == 0 {
 		mc.joinSnippet(headerMD)
 		mc.applyToChunks()
@@ -414,13 +377,7 @@ func (mc *markdownContext) splitTableRows(header []string, bodies [][]string) {
 
 	// append table header
 	for _, row := range bodies {
-		line := ""
-		for i := range row {
-			line += fmt.Sprintf("| %s ", row[i])
-			if i == len(row)-1 {
-				line += "|"
-			}
-		}
+		line := tableRowInMarkdown(row)
 
 		mc.joinSnippet(fmt.Sprintf("%s\n%s", headerMD, line))
 
@@ -429,10 +386,10 @@ func (mc *markdownContext) splitTableRows(header []string, bodies [][]string) {
 	}
 }
 
-// splitTableHeader splits table header
+// onTableHeader splits table header
 //
 // format: THeadOpen/TrOpen/[ThOpen/Inline/ThClose]*/TrClose/THeadClose
-func (mc *markdownContext) splitTableHeader() []string {
+func (mc *markdownContext) onTableHeader() []string {
 	endAt := indexOfCloseTag(mc.tokens, mc.startAt)
 	defer func() {
 		mc.startAt = endAt + 1
@@ -472,10 +429,10 @@ func (mc *markdownContext) splitTableHeader() []string {
 	return headers
 }
 
-// splitTableBody splits table body
+// onTableBody splits table body
 //
 // format: TBodyOpen/TrOpen/[TdOpen/Inline/TdClose]*/TrClose/TBodyClose
-func (mc *markdownContext) splitTableBody() [][]string {
+func (mc *markdownContext) onTableBody() [][]string {
 	endAt := indexOfCloseTag(mc.tokens, mc.startAt)
 	defer func() {
 		mc.startAt = endAt + 1
@@ -581,15 +538,6 @@ func (mc *markdownContext) splitInline(inline *markdown.Inline) string {
 	return inline.Content
 }
 
-// repeatString repeats the initChar for count times.
-func repeatString(count int, initChar string) string {
-	var s string
-	for i := 0; i < count; i++ {
-		s += initChar
-	}
-	return s
-}
-
 // closeTypes represents the close operation type for each open operation type.
 var closeTypes = map[reflect.Type]reflect.Type{ //nolint:gochecknoglobals
 	reflect.TypeOf(&markdown.HeadingOpen{}):     reflect.TypeOf(&markdown.HeadingClose{}),
@@ -627,4 +575,51 @@ func indexOfCloseTag(tokens []markdown.Token, startAt int) int {
 	}
 
 	return idx
+}
+
+// repeatString repeats the initChar for count times.
+func repeatString(count int, initChar string) string {
+	var s string
+	for i := 0; i < count; i++ {
+		s += initChar
+	}
+	return s
+}
+
+// formatWithIndent.
+func formatWithIndent(value, mark string) string {
+	lines := strings.Split(value, "\n")
+	for i, line := range lines {
+		lines[i] = fmt.Sprintf("%s%s", mark, line)
+	}
+	return strings.Join(lines, "\n")
+}
+
+// tableHeaderInMarkdown represents the Markdown format for table header.
+func tableHeaderInMarkdown(header []string) string {
+	headerMD := tableRowInMarkdown(header)
+
+	// add separator
+	var separators []string
+	for i := 0; i < len(header); i++ {
+		separators = append(separators, "---")
+	}
+
+	headerMD += "\n" // add new line
+	headerMD += tableRowInMarkdown(separators)
+
+	return headerMD
+}
+
+// tableRowInMarkdown represents the Markdown format for table row.
+func tableRowInMarkdown(row []string) string {
+	var line string
+	for i := range row {
+		line += fmt.Sprintf("| %s ", row[i])
+		if i == len(row)-1 {
+			line += "|"
+		}
+	}
+
+	return line
 }

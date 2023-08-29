@@ -156,10 +156,13 @@ func TestMarkdownHeaderTextSplitter_BulletList(t *testing.T) {
         - [Your PR is merged!](#your-pr-is-merged)
 `,
 			expectedDocs: []schema.Document{
-				{PageContent: `- [Code of Conduct](#code-of-conduct)
+				{
+					PageContent: `- [Code of Conduct](#code-of-conduct)
 - [I Have a Question](#i-have-a-question)`,
-					Metadata: map[string]any{}},
-				{PageContent: `- [I Want To Contribute](#i-want-to-contribute)
+					Metadata: map[string]any{},
+				},
+				{
+					PageContent: `- [I Want To Contribute](#i-want-to-contribute)
   - [Reporting Bugs](#reporting-bugs)
     - [Before Submitting a Bug Report](#before-submitting-a-bug-report)
     - [How Do I Submit a Good Bug Report?](#how-do-i-submit-a-good-bug-report)

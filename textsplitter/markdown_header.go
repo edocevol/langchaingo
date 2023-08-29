@@ -192,7 +192,7 @@ func (mc *markdownContext) onMDParagraph() {
 		return
 	}
 
-	mc.splitInline(inline)
+	mc.joinSnippet(mc.splitInline(inline))
 }
 
 // onMDQuote splits blockquote
@@ -306,7 +306,7 @@ func (mc *markdownContext) onListItem() {
 
 	mc.startAt++
 
-	for mc.startAt < endAt {
+	for mc.startAt < endAt-1 {
 		nextToken := mc.tokens[mc.startAt]
 		switch nextToken.(type) {
 		case *markdown.ParagraphOpen:

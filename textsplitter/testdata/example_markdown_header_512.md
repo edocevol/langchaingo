@@ -1,4 +1,15 @@
 # Contributing to langchaingo
+First off, thanks for taking the time to contribute! ❤️
+All types of contributions are encouraged and valued. See the [Table of Contents](#table-of-contents) for different ways
+to help and details about how this project handles them. Please make sure to read the relevant section before making
+your contribution. It will make it a lot easier for us maintainers and smooth out the experience for all involved. The
+community looks forward to your contributions. 🎉
+
+---
+
+# Contributing to langchaingo
+> And if you like the project, but just don't have time to contribute, that's fine. There are other easy ways to support
+> the project and show your appreciation, which we would also be very happy about:
 > Star the project
 > Tweet about it
 > Refer this project in your project's readme
@@ -34,10 +45,47 @@
 
 ---
 
+## Code of Conduct
+This project and everyone participating in it is governed by the
+[langchaingo Code of Conduct](/CODE_OF_CONDUCT.md).
+By participating, you are expected to uphold this code. Please report unacceptable behavior
+to <travis.cline@gmail.com>.
+
+---
+
+## I Have a Question
+> If you want to ask a question, we assume that you have read the
+> available [Documentation](https://pkg.go.dev/github.com/tmc/langchaingo).
+
+---
+
+## I Have a Question
+Before you ask a question, it is best to search for existing [Issues](https://github.com/tmc/langchaingo/issues) that
+might help you. In case you have found a suitable issue and still need clarification, you can write your question in
+this issue. It is also advisable to search the internet for answers first.
+If you then still feel the need to ask a question and need clarification, we recommend the following:
+
+---
+
 ## I Have a Question
 Open an [Issue](https://github.com/tmc/langchaingo/issues/new).
 Provide as much context as you can about what you're running into.
 Provide project and platform versions (nodejs, npm, etc), depending on what seems relevant.
+We will then take care of the issue as soon as possible.
+
+---
+
+## I Want To Contribute
+> ### Legal Notice
+> When contributing to this project, you must agree that you have authored 100% of the content, that you have the
+> necessary rights to the content and that the content you contribute may be provided under the project license.
+
+---
+
+#### Before Submitting a Bug Report
+A good bug report shouldn't leave others needing to chase you up for more information. Therefore, we ask you to
+investigate carefully, collect information and describe the issue in detail in your report. Please complete the
+following steps in advance to help us fix any potential bug as fast as possible.
 
 ---
 
@@ -69,6 +117,14 @@ Collect information about the bug:
 ---
 
 #### How Do I Submit a Good Bug Report?
+> You must never report security related issues, vulnerabilities or bugs including sensitive information to the issue
+> tracker, or elsewhere in public. Instead sensitive bugs must be sent by email to <travis.cline@gmail.com>.
+> <!-- You may add a PGP key to allow the messages to be sent encrypted as well. -->
+
+---
+
+#### How Do I Submit a Good Bug Report?
+We use GitHub issues to track bugs and errors. If you run into an issue with the project:
 Open an [Issue](https://github.com/tmc/langchaingo/issues/new). (Since we can't be sure at this point whether it is a
 bug or not, we ask you not to talk about a bug yet and not to label the issue.)
 Explain the behavior you would expect and the actual behavior.
@@ -80,6 +136,7 @@ Please provide as much context as possible and describe the *reproduction steps*
 recreate the issue on their own. This usually includes your code. For good bug reports you should isolate the problem
 and create a reduced test case.
 Provide the information you collected in the previous section.
+Once it's filed:
 
 ---
 
@@ -94,6 +151,14 @@ with the `needs-repro` tag will not be addressed until they are reproduced.
 #### How Do I Submit a Good Bug Report?
 If the team is able to reproduce the issue, it will be marked `needs-fix`, as well as possibly other tags (such
 as `critical`), and the issue will be left to be [implemented by someone](#your-first-code-contribution).
+<!-- You might want to create an issue template for bugs and errors that can be used as a guide and that defines the structure of the information to be included. If you do so, reference it here in the description. -->
+
+---
+
+### Suggesting Enhancements
+This section guides you through submitting an enhancement suggestion for langchaingo, **including completely new
+features and minor improvements to existing functionality**. Following these guidelines will help maintainers and the
+community to understand your suggestion and find related suggestions.
 
 ---
 
@@ -115,6 +180,7 @@ consider writing an add-on/plugin library.
 ---
 
 #### How Do I Submit a Good Enhancement Suggestion?
+Enhancement suggestions are tracked as [GitHub issues](https://github.com/tmc/langchaingo/issues).
 Use a **clear and descriptive title** for the issue to identify the suggestion.
 Provide a **step-by-step description of the suggested enhancement** in as many details as possible.
 **Describe the current behavior** and **explain which behavior you expected to see instead** and why. At this point
@@ -139,6 +205,18 @@ associated concepts in those codebases when introducing a new concept.
 
 ---
 
+#### How Do I Submit a Good Enhancement Suggestion?
+<!-- You might want to create an issue template for enhancement suggestions that can be used as a guide and that defines the structure of the information to be included. If you do so, reference it here in the description. -->
+
+---
+
+##### Make changes in the UI
+Click **Make a contribution** at the bottom of any docs page to make small changes such as a typo, sentence fix, or a
+broken link. This takes you to the `.md` file where you can make your changes and [create a pull request](#pull-request)
+for a review.
+
+---
+
 ##### Make changes locally
 1. Fork the repository.
 Using GitHub Desktop:
@@ -155,6 +233,16 @@ Using the command line:
   so that you can make your changes without affecting the original project until you're ready to merge them.
 1. Install or make sure **Golang** is updated.
 2. Create a working branch and start with your changes!
+
+---
+
+#### Commit your update
+Commit the changes once you are happy with them. Don't forget to self-review to speed up the review process:zap:.
+
+---
+
+#### Pull Request
+When you're finished with the changes, create a pull request, also known as a PR.
 
 ---
 
@@ -198,6 +286,13 @@ As you update your PR and apply changes, mark each conversation
 as [resolved](https://docs.github.com/en/github/collaborating-with-issues-and-pull-requests/commenting-on-a-pull-request#resolving-conversations).
 If you run into any merge issues, checkout this [git tutorial](https://github.com/skills/resolve-merge-conflicts) to
 help you resolve merge conflicts and other issues.
+
+---
+
+#### Your PR is merged!
+Congratulations :tada::tada: The langchaingo team thanks you :sparkles:.
+Once your PR is merged, your contributions will be publicly visible on the repository contributors list.
+Now that you are part of the community!
 
 ---
 
